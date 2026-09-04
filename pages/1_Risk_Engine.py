@@ -8,13 +8,13 @@ import streamlit as st
 
 import core as C
 
-st.set_page_config(page_title="Risk Engine · PortaRisk", page_icon="📉", layout="wide")
+st.set_page_config(page_title="Risk Engine · PortaRisk", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}"
             "[data-testid='stMetricValue']{font-size:1.45rem;}</style>",
             unsafe_allow_html=True)
 
 # ---------------------------------------------------------------- Sidebar
-st.sidebar.title("⚙️ Portfolio setup")
+st.sidebar.title("Portfolio setup")
 tickers_raw = st.sidebar.text_input("Tickers (comma-separated)", "SPY, TLT, GLD, QQQ, EEM")
 tickers = [t.strip().upper() for t in tickers_raw.split(",") if t.strip()]
 
@@ -22,7 +22,8 @@ mode = st.sidebar.radio("Weights", ["Equal weight", "Custom"], horizontal=True)
 if mode == "Custom" and tickers:
     raw = [st.sidebar.number_input(t, 0.0, value=round(1/len(tickers), 2), step=0.05,
                                    key=f"rw_{t}") for t in tickers]
-    w = np.array(raw, float); weights = w/w.sum() if w.sum() > 0 else np.repeat(1/len(tickers), len(tickers))
+    w = np.array(raw, float)
+    weights = w/w.sum() if w.sum() > 0 else np.repeat(1/len(tickers), len(tickers))
 else:
     weights = np.repeat(1/len(tickers), len(tickers)) if tickers else np.array([])
 
@@ -36,15 +37,15 @@ with st.sidebar.expander("Advanced"):
     mc = st.number_input("Monte Carlo simulations", 1000, 200000, 50000, 5000)
     bt_window = st.number_input("Backtest window (days)", 100, 1000, 500, 50)
     bt_method = st.selectbox("Backtest method", ["historical", "parametric"])
-run = st.sidebar.button("▶  Run risk analysis", type="primary", use_container_width=True)
+run = st.sidebar.button("Run risk analysis", type="primary", use_container_width=True)
 
 # ---------------------------------------------------------------- Header
-st.title("📉 Risk Engine")
-st.caption("Multi-method Value-at-Risk & Expected Shortfall, with a best-case upside view "
-           "and regulatory backtesting.")
+st.title("Risk Engine")
+st.caption("Multi-method Value-at-Risk & Expected Shortfall, with a best-case upside "
+           "view and regulatory backtesting.")
 
 if not run:
-    st.info("👈 Set up your portfolio and hit **Run risk analysis**.")
+    st.info("Set up your portfolio in the sidebar, then run the analysis.")
     st.stop()
 if len(tickers) < 2:
     st.error("Enter at least two tickers."); st.stop()
@@ -62,13 +63,13 @@ with st.spinner("Fetching data & computing risk…"):
         weights = np.repeat(1/len(have), len(have)); tickers = have
     prices = prices[tickers]
     if prices.shape[0] < bt_window + 50:
-        st.error(f"Only {prices.shape[0]} days available; need ≥ {bt_window+50}. "
+        st.error(f"Only {prices.shape[0]} days available; need at least {bt_window+50}. "
                  "Widen the dates or shrink the backtest window."); st.stop()
 
     asset_ret, port = C.portfolio_series(prices, weights)
     pv = notional
     ann_ret, ann_vol, sharpe = C.annualised_stats(port)
-    tbl = C.tails_by_method(port, alpha, mc)          # fractions
+    tbl = C.tails_by_method(port, alpha, mc)
     dollar = (tbl * pv)
     vf, rz, ex = C.rolling_var_backtest(port, alpha, int(bt_window), bt_method)
     _, p_k, obs, exp = C.kupiec_pof(ex, alpha)
@@ -87,7 +88,7 @@ k[4].metric(f"{conf:g}% 1-day VaG", f"${dollar.loc['Historical','VaG']:,.0f}",
 st.caption(f"{prices.shape[0]:,} trading days · {prices.index[0].date()} → "
            f"{prices.index[-1].date()} · notional ${pv:,.0f}")
 
-t1, t2, t3, t4 = st.tabs(["📊 Risk summary", "🔔 Distribution", "🧪 Backtest", "🧭 Diagnostics"])
+t1, t2, t3, t4 = st.tabs(["Risk summary", "Distribution", "Backtest", "Diagnostics"])
 
 # ---------------------------------------------------------------- Tab 1
 with t1:
@@ -98,7 +99,7 @@ with t1:
         fig.add_bar(x=order, y=dollar.loc[order, "VaR"], name="VaR", marker_color=C.C_DOWN)
         fig.add_bar(x=order, y=dollar.loc[order, "ES"], name="ES", marker_color="#9E3B3D")
         fig.update_layout(title=f"Worst case — VaR & ES ({conf:g}%)", barmode="group",
-                          height=380, template="plotly_dark", yaxis_tickformat="$,.0f",
+                          height=380, yaxis_tickformat="$,.0f",
                           margin=dict(t=50, b=10, l=10, r=10),
                           legend=dict(orientation="h", y=1.12))
         st.plotly_chart(fig, use_container_width=True)
@@ -107,7 +108,7 @@ with t1:
         fig.add_bar(x=order, y=dollar.loc[order, "VaG"], name="VaG", marker_color=C.C_UP)
         fig.add_bar(x=order, y=dollar.loc[order, "EG"], name="EG", marker_color="#3C7A38")
         fig.update_layout(title=f"Best case — VaG & EG ({conf:g}%)", barmode="group",
-                          height=380, template="plotly_dark", yaxis_tickformat="$,.0f",
+                          height=380, yaxis_tickformat="$,.0f",
                           margin=dict(t=50, b=10, l=10, r=10),
                           legend=dict(orientation="h", y=1.12))
         st.plotly_chart(fig, use_container_width=True)
@@ -123,20 +124,20 @@ with t2:
     dv, de, uv, ue = C.historical_tails(port, alpha)
     fig = go.Figure()
     fig.add_histogram(x=r, nbinsx=140, histnorm="probability density",
-                      marker_color=C.C_BASE, opacity=0.6, name="Daily returns")
+                      marker_color=C.C_BASE, opacity=0.55, name="Daily returns")
     fig.add_histogram(x=r[r <= -dv], nbinsx=40, histnorm="probability density",
                       marker_color=C.C_DOWN, opacity=0.8, name="Downside tail")
     fig.add_histogram(x=r[r >= uv], nbinsx=40, histnorm="probability density",
                       marker_color=C.C_UP, opacity=0.8, name="Upside tail")
     xs = np.linspace(r.min(), r.max(), 400)
     fig.add_scatter(x=xs, y=stats.norm.pdf(xs, r.mean(), r.std()),
-                    line=dict(color="#DDDDDD", dash="dot"), name="Fitted normal")
+                    line=dict(color="#888888", dash="dot"), name="Fitted normal")
     fig.add_vline(x=-dv, line=dict(color=C.C_DOWN, dash="dash"),
                   annotation_text=f"VaR {dv:.2%}", annotation_position="top left")
     fig.add_vline(x=uv, line=dict(color=C.C_UP, dash="dash"),
                   annotation_text=f"VaG {uv:.2%}", annotation_position="top right")
-    fig.update_layout(barmode="overlay", height=500, template="plotly_dark",
-                      xaxis_tickformat=".0%", xaxis_title="Daily return", yaxis_title="Density",
+    fig.update_layout(barmode="overlay", height=500, xaxis_tickformat=".0%",
+                      xaxis_title="Daily return", yaxis_title="Density",
                       margin=dict(t=20, b=10, l=10, r=10),
                       legend=dict(orientation="h", y=1.05))
     st.plotly_chart(fig, use_container_width=True)
@@ -157,10 +158,10 @@ with t3:
     fig.add_scatter(x=dates, y=-vf, mode="lines", line=dict(color=C.C_DOWN, width=1.6),
                     name=f"{conf:g}% VaR forecast")
     fig.add_scatter(x=dates[m], y=rz[m], mode="markers",
-                    marker=dict(color="#FF6B6B", size=7, line=dict(color="black", width=.5)),
+                    marker=dict(color="#C0392B", size=7, line=dict(color="#7A2E31", width=.5)),
                     name=f"Exceptions ({int(m.sum())})")
-    fig.update_layout(height=460, template="plotly_dark", yaxis_tickformat=".0%",
-                      yaxis_title="Daily return", margin=dict(t=20, b=10, l=10, r=10),
+    fig.update_layout(height=460, yaxis_tickformat=".0%", yaxis_title="Daily return",
+                      margin=dict(t=20, b=10, l=10, r=10),
                       legend=dict(orientation="h", y=1.05))
     st.plotly_chart(fig, use_container_width=True)
     passed = (p_k > 0.05) and (p_c > 0.05)
@@ -169,16 +170,16 @@ with t3:
     m3[1].metric("Kupiec p", f"{p_k:.3f}" if not np.isnan(p_k) else "n/a")
     m3[2].metric("Christoffersen p", f"{p_c:.3f}" if not np.isnan(p_c) else "n/a")
     (st.success if passed else st.warning)(
-        "✅ Well-calibrated — both tests fail to reject the model (p > 0.05)." if passed
-        else "⚠️ Review — a test rejects at p < 0.05: breaches may be too frequent or clustered.")
+        "Well-calibrated — both tests fail to reject the model (p > 0.05)." if passed
+        else "Review — a test rejects at p < 0.05: breaches may be too frequent or clustered.")
 
-# ---------------------------------------------------------------- Tab 4 (NEW: diagnostics)
+# ---------------------------------------------------------------- Tab 4
 with t4:
     st.markdown("**Correlation between assets**")
     corr = asset_ret.corr()
     fig = px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu_r",
                     zmin=-1, zmax=1, aspect="auto")
-    fig.update_layout(height=360, template="plotly_dark", margin=dict(t=10, b=10, l=10, r=10))
+    fig.update_layout(height=360, margin=dict(t=10, b=10, l=10, r=10))
     st.plotly_chart(fig, use_container_width=True)
 
     d1, d2 = st.columns(2)
@@ -186,7 +187,7 @@ with t4:
         st.markdown("**Contribution to portfolio risk**")
         rc = C.risk_contribution(asset_ret, weights).sort_values()
         fig = go.Figure(go.Bar(x=rc.values, y=rc.index, orientation="h", marker_color=C.C_ACCENT))
-        fig.update_layout(height=320, template="plotly_dark", xaxis_tickformat=".0%",
+        fig.update_layout(height=320, xaxis_tickformat=".0%",
                           margin=dict(t=10, b=10, l=10, r=10))
         st.plotly_chart(fig, use_container_width=True)
         st.caption("Share of total portfolio variance from each asset — not the same as its weight.")
@@ -196,8 +197,7 @@ with t4:
         fig = go.Figure()
         fig.add_scatter(x=curve.index, y=curve.values, line=dict(color=C.C_UP), name="Growth of $1")
         fig.add_scatter(x=dd.index, y=dd.values, line=dict(color=C.C_DOWN), name="Drawdown", yaxis="y2")
-        fig.update_layout(height=320, template="plotly_dark",
-                          yaxis=dict(title="Growth of $1"),
+        fig.update_layout(height=320, yaxis=dict(title="Growth of $1"),
                           yaxis2=dict(title="Drawdown", overlaying="y", side="right", tickformat=".0%"),
                           margin=dict(t=10, b=10, l=10, r=10),
                           legend=dict(orientation="h", y=1.08))
@@ -205,23 +205,23 @@ with t4:
         st.caption(f"Max drawdown over the period: **{mdd:.1%}**.")
 
 # ---------------------------------------------------------------- Methodology
-with st.expander("📖 Methodology — how each number is computed"):
+with st.expander("Methodology — how each number is computed"):
     st.markdown(
         """
         - **VaR (Value-at-Risk):** the loss your portfolio is *not* expected to exceed on a
           normal day, at the chosen confidence level (e.g. 99% → the worst 1-in-100 day).
-        - **ES (Expected Shortfall):** the *average* loss on the days that are worse than VaR —
-          it captures how bad the tail really is. The **97.5% ES** is the FRTB-mandated
+        - **ES (Expected Shortfall):** the *average* loss on the days worse than VaR — it
+          captures how bad the tail really is. The **97.5% ES** is the FRTB-mandated
           regulatory risk measure under Basel III.
         - **VaG / EG (upside mirror):** the same idea flipped — the gain you'd exceed only on
           your strongest days, and the average gain in that top tail.
-        - **Four methods:** *Historical* (empirical, no distribution assumed), *Parametric-N*
-          (Gaussian), *Parametric-t* (Student-t, fat tails), *Monte Carlo* (50k simulations).
-          Cross-checking them guards against any single model's blind spot.
-        - **Backtests:** the model is walked forward day by day; **Kupiec** checks the breach
-          *frequency* is right, **Christoffersen** checks breaches don't *cluster*. p > 0.05 on
-          both = well-calibrated.
+        - **Four methods:** Historical (empirical), Parametric-N (Gaussian), Parametric-t
+          (Student-t, fat tails), and Monte Carlo (simulation). Cross-checking them guards
+          against any single model's blind spot.
+        - **Backtests:** the model is walked forward day by day; Kupiec checks the breach
+          *frequency* is right, Christoffersen checks breaches don't *cluster*. p > 0.05 on
+          both means well-calibrated.
         """)
 
-st.markdown("---")
+st.divider()
 st.caption("Educational tool — not investment advice.")
