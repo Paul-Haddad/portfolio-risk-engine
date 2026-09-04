@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#4C9BE0"
+font = "sans serif"
+
+[client]
+showErrorDetails = true
