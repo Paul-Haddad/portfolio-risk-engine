@@ -40,7 +40,9 @@ def fetch_prices(tickers: tuple, start, end) -> pd.DataFrame:
     prices = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw[["Close"]]
     if not isinstance(prices, pd.DataFrame):
         prices = prices.to_frame()
-    return prices.dropna(how="all").ffill().dropna()
+    prices = prices.dropna(how="all").ffill()
+    prices = prices.dropna(axis=1, how="all")   # drop tickers that returned no data
+    return prices.dropna()
 
 
 def portfolio_series(prices: pd.DataFrame, weights: np.ndarray):
